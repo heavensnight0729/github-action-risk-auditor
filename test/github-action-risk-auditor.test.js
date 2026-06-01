@@ -7,6 +7,9 @@ import {
 import {
   renderWorkflowRiskReport,
 } from '../src/github-action-risk-auditor/render-report.js';
+import {
+  runGithubActionRiskAuditorCli,
+} from '../src/github-action-risk-auditor/cli.js';
 
 test('detects broad permissions unpinned actions pull_request_target and secret echo risks', () => {
   const workflowText = [
@@ -88,4 +91,46 @@ test('renders deterministic markdown with summary and finding table', () => {
   assert.match(markdown, /`\.github\/workflows\/ci\.yml:2`/);
   assert.match(markdown, /pull_request_target trigger/);
   assert.match(markdown, /write-all permissions/);
+});
+
+test('cli audits injected workflow files and returns failing status when risks exist', async () => {
+  const writes = [];
+  const loadCalls = [];
+
+  const exitCode = await runGithubActionRiskAuditorCli({
+    argv: ['--workflow', '.github/workflows/ci.yml'],
+    loadWorkflows: async (workflowPath) => {
+      loadCalls.push(workflowPath);
+      return [
+        {
+          filePath: workflowPath,
+          workflowText: [
+            'name: risky-ci',
+            'permissions: write-all',
+          ].join('\n'),
+        },
+      ];
+    },
+    writeOutput: (value) => writes.push(value),
+  });
+
+  assert.equal(exitCode, 1);
+  assert.deepEqual(loadCalls, ['.github/workflows/ci.yml']);
+  assert.match(writes[0], /^# GitHub Action Risk Report/);
+  assert.match(writes[0], /write-all permissions/);
+});
+
+test('cli renders help without loading workflows', async () => {
+  const writes = [];
+
+  const exitCode = await runGithubActionRiskAuditorCli({
+    argv: ['--help'],
+    loadWorkflows: async () => {
+      throw new Error('loadWorkflows should not be called');
+    },
+    writeOutput: (value) => writes.push(value),
+  });
+
+  assert.equal(exitCode, 0);
+  assert.match(writes[0], /Usage: github-action-risk-auditor/);
 });
