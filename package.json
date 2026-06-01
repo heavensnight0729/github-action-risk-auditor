@@ -1,0 +1,23 @@
+{
+  "name": "github-action-risk-auditor",
+  "version": "0.1.0",
+  "description": "Dependency-free CLI that audits GitHub Actions workflows for high-signal maintainer security risks.",
+  "type": "module",
+  "bin": {
+    "github-action-risk-auditor": "src/github-action-risk-auditor/cli.js"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "keywords": [
+    "github-actions",
+    "security",
+    "oss",
+    "ci",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
