@@ -4,6 +4,9 @@ import { test } from 'node:test';
 import {
   auditWorkflowText,
 } from '../src/github-action-risk-auditor/audit-workflow.js';
+import {
+  renderWorkflowRiskReport,
+} from '../src/github-action-risk-auditor/render-report.js';
 
 test('detects broad permissions unpinned actions pull_request_target and secret echo risks', () => {
   const workflowText = [
@@ -65,4 +68,24 @@ test('does not flag pinned actions read-only permissions or safe secret env wiri
 
   assert.equal(report.summary.totalFindings, 0);
   assert.deepEqual(report.findings, []);
+});
+
+test('renders deterministic markdown with summary and finding table', () => {
+  const report = auditWorkflowText({
+    filePath: '.github/workflows/ci.yml',
+    workflowText: [
+      'name: risky-ci',
+      'on: pull_request_target',
+      'permissions: write-all',
+    ].join('\n'),
+  });
+
+  const markdown = renderWorkflowRiskReport(report);
+
+  assert.match(markdown, /^# GitHub Action Risk Report/);
+  assert.match(markdown, /\| Total \| Critical \| High \| Medium \| Low \|/);
+  assert.match(markdown, /\| 2 \| 0 \| 2 \| 0 \| 0 \|/);
+  assert.match(markdown, /`\.github\/workflows\/ci\.yml:2`/);
+  assert.match(markdown, /pull_request_target trigger/);
+  assert.match(markdown, /write-all permissions/);
 });
