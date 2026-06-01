@@ -7,6 +7,8 @@
     "github-action-risk-auditor": "src/github-action-risk-auditor/cli.js"
   },
   "scripts": {
+    "audit:example": "node src/github-action-risk-auditor/cli.js --workflow examples/unsafe-workflow.yml --min-severity high",
+    "audit:self": "node src/github-action-risk-auditor/cli.js --workflow .github/workflows/ci.yml",
     "test": "node --test --test-concurrency=1"
   },
   "keywords": [

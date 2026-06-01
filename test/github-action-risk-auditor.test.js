@@ -120,6 +120,55 @@ test('cli audits injected workflow files and returns failing status when risks e
   assert.match(writes[0], /write-all permissions/);
 });
 
+test('cli supports json output for automation', async () => {
+  const writes = [];
+
+  const exitCode = await runGithubActionRiskAuditorCli({
+    argv: ['--workflow', '.github/workflows/ci.yml', '--format', 'json'],
+    loadWorkflows: async (workflowPath) => [
+      {
+        filePath: workflowPath,
+        workflowText: [
+          'name: risky-ci',
+          'permissions: write-all',
+        ].join('\n'),
+      },
+    ],
+    writeOutput: (value) => writes.push(value),
+  });
+
+  const json = JSON.parse(writes[0]);
+
+  assert.equal(exitCode, 1);
+  assert.equal(json.schemaVersion, 'github_action_risk_auditor.report/v1');
+  assert.equal(json.summary.totalFindings, 1);
+  assert.equal(json.findings[0].ruleId, 'write-all-permissions');
+});
+
+test('cli can fail only at or above a selected severity', async () => {
+  const writes = [];
+
+  const exitCode = await runGithubActionRiskAuditorCli({
+    argv: ['--workflow', '.github/workflows/ci.yml', '--min-severity', 'high'],
+    loadWorkflows: async (workflowPath) => [
+      {
+        filePath: workflowPath,
+        workflowText: [
+          'name: medium-risk-ci',
+          'jobs:',
+          '  test:',
+          '    steps:',
+          '      - uses: actions/checkout@v4',
+        ].join('\n'),
+      },
+    ],
+    writeOutput: (value) => writes.push(value),
+  });
+
+  assert.equal(exitCode, 0);
+  assert.match(writes[0], /Unpinned action reference/);
+});
+
 test('cli renders help without loading workflows', async () => {
   const writes = [];
 

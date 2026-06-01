@@ -18,8 +18,17 @@ Audits GitHub Actions workflow files for high-signal maintainer security risks.
 
 Options:
   --workflow <path>   Workflow file or directory. Defaults to .github/workflows.
+  --format <format>   Output format: markdown or json. Defaults to markdown.
+  --min-severity <s>  Minimum severity that returns exit code 1. Defaults to medium.
   --help              Show this help message.
 `;
+
+const SEVERITY_RANK = Object.freeze({
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+});
 
 export async function runGithubActionRiskAuditorCli({
   argv = process.argv.slice(2),
@@ -35,11 +44,13 @@ export async function runGithubActionRiskAuditorCli({
 
   const workflows = await loadWorkflows(parsedArgs.workflowPath);
   const report = combineReports(workflows.map(auditWorkflowText));
-  const markdown = renderWorkflowRiskReport(report);
+  const output = parsedArgs.format === 'json'
+    ? `${JSON.stringify(report, null, 2)}\n`
+    : renderWorkflowRiskReport(report);
 
-  writeOutput(markdown);
+  writeOutput(output);
 
-  return report.summary.totalFindings > 0 ? 1 : 0;
+  return hasFindingAtOrAboveSeverity(report.findings, parsedArgs.minSeverity) ? 1 : 0;
 }
 
 function combineReports(reports) {
@@ -74,7 +85,9 @@ function summarizeFindings(findings) {
 
 function parseArgs(argv) {
   const parsedArgs = {
+    format: 'markdown',
     help: false,
+    minSeverity: 'medium',
     workflowPath: '.github/workflows',
   };
 
@@ -92,10 +105,44 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === '--format') {
+      parsedArgs.format = requireOutputFormat(requireValue(argv, index, '--format'));
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--min-severity') {
+      parsedArgs.minSeverity = requireSeverity(requireValue(argv, index, '--min-severity'));
+      index += 1;
+      continue;
+    }
+
     throw new RangeError(`Unsupported argument: ${arg}`);
   }
 
   return parsedArgs;
+}
+
+function hasFindingAtOrAboveSeverity(findings, minSeverity) {
+  const minRank = SEVERITY_RANK[minSeverity];
+
+  return findings.some((finding) => SEVERITY_RANK[finding.severity] >= minRank);
+}
+
+function requireOutputFormat(value) {
+  if (value !== 'markdown' && value !== 'json') {
+    throw new RangeError('--format must be markdown or json');
+  }
+
+  return value;
+}
+
+function requireSeverity(value) {
+  if (!Object.hasOwn(SEVERITY_RANK, value)) {
+    throw new RangeError('--min-severity must be low, medium, high, or critical');
+  }
+
+  return value;
 }
 
 function requireValue(argv, index, flagName) {
