@@ -1,0 +1,11 @@
+name: risky-ci
+on: pull_request_target
+permissions: write-all
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: org/custom-action@main
+      - run: echo "${{ secrets.EXAMPLE_TOKEN }}"
